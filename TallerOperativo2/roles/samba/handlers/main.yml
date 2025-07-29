@@ -1,0 +1,5 @@
+- name: Reiniciar smbd
+  ansible.builtin.service:
+    name: smbd
+    state: restarted
+

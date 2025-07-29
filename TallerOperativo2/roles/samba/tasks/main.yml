@@ -1,0 +1,63 @@
+- name: Asegurar que el paquete samba este instalado
+  ansible.builtin.apt:
+    name: samba
+    state: present
+    update_cache: yes
+  tags: samba
+
+- name: Crear grupo '{{ samba_group  }}' en el sistema
+  ansible.builtin.group:
+    name: "{{ samba_group  }}"
+    state: present
+  tags: samba
+
+- name: Crear directorio compartido {{ samba_share_dir  }}
+  ansible.builtin.file:
+    path: "{{ samba_share_dir  }}"
+    state: directory
+    mode: '0770'
+    owner: root
+    group: "{{ samba_group }}"
+    recurse: yes
+  tags: samba
+
+- name: Crear usuario de sistema '{{ samba_user }}' sin shell y anadirlo al grupo '{{ samba_group }}'
+  ansible.builtin.user:
+    name: "{{ samba_user  }}"
+    state: present
+    shell: /usr/sbin/nologin
+    groups: "{{ samba_group }}"
+    append: yes
+  tags: samba
+
+- name: Establecer contrasena de Samba para {{ samba_user }}
+  ansible.builtin.shell:  |
+    (echo "{{ samba_user_password }}"; echo "{{ samba_user_password }}") | smbpasswd -a -s {{ samba_user  }}
+  args:
+    creates: /var/lib/samba/private/secrets.tdb
+  become: yes
+  no_log: true
+  tags: samba
+
+- name: Congifurar recurso compartido de Samba en smb.conf
+  ansible.builtin.blockinfile:
+    path: /etc/samba/smb.conf
+    block: |
+      [{{ samba_share_name }}]
+      path = {{ samba_share_dir }}
+      writable = yes
+      valid users = @{{ samba_group }}
+      create mask = 0660
+      directory mask = 0770
+      guest ok = no
+      read only = no
+    marker: "# {mark} ANSIBLE MANAGED BLOCK FOR {{ samba_share_name }}  "
+  notify: Reiniciar smbd
+  tags: samba
+
+- name: Asegurar que el servicio smbd este iniciado y habilitado en el arranque
+  ansible.builtin.service:
+    name: smbd
+    state: started
+    enabled: yes
+  tags: samba
