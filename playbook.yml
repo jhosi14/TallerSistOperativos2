@@ -1,0 +1,9 @@
+- name: Configurar Servidor InnovaSys
+  hosts: servers
+  become: yes
+  vars:
+    nombre_empresa: "InnovaSys"
+
+  roles:
+    - apache
+    - samba
